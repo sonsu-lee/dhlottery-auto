@@ -95,11 +95,19 @@ function setupPopupHandler(context: BrowserContext) {
   // 환경변수 검증
   const { id, pw } = validateEnvironmentVariables();
 
+  // CI 환경 감지
+  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+
+  console.log(`환경: ${isCI ? 'CI' : '로컬'}`);
+
   const browser = await chromium.launch({
-    headless: false,
+    headless: isCI, // CI에서는 headless 모드
     args: [
       '--disable-popup-blocking', // 팝업 차단 비활성화
       '--disable-blink-features=AutomationControlled',
+      '--no-sandbox', // CI 환경에서 필요
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage', // 메모리 부족 방지
     ],
   });
 
@@ -310,6 +318,25 @@ function setupPopupHandler(context: BrowserContext) {
   } catch (error) {
     console.error(`❌ 오류 발생: ${error}`);
 
+    // CI 환경에서 스크린샷 저장
+    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+    if (isCI) {
+      try {
+        const pages = context.pages();
+        for (let i = 0; i < pages.length; i++) {
+          const p = pages[i];
+          if (p) {
+            await p.screenshot({
+              path: `error-screenshot-${i}.png`,
+              fullPage: true
+            }).catch(() => console.log(`스크린샷 저장 실패: 페이지 ${i}`));
+          }
+        }
+      } catch (screenshotError) {
+        console.error(`스크린샷 저장 중 오류: ${screenshotError}`);
+      }
+    }
+
     // 현재 열린 모든 페이지 정보 출력 (디버깅용)
     const pages = context.pages();
     console.log(`\n[디버그] 열린 페이지 수: ${pages.length}`);
@@ -317,11 +344,19 @@ function setupPopupHandler(context: BrowserContext) {
       console.log(`  - ${p.url()}`);
     }
 
+    // 스택 트레이스 출력
+    if (error instanceof Error) {
+      console.error(`\n[에러 상세]`);
+      console.error(`메시지: ${error.message}`);
+      console.error(`스택: ${error.stack}`);
+    }
+
     throw error;
   } finally {
     await context.close();
     await browser.close();
   }
-})().catch(() => {
+})().catch((error) => {
+  console.error(`\n❌ 프로그램 종료: ${error}`);
   process.exit(1);
 });
