@@ -35,12 +35,29 @@ jobs:
       - name: Build project
         run: yarn build
 
+      - name: Verify environment variables
+        run: |
+          echo "Checking environment variables..."
+          if [ -z "$DHLOTTERY_ID" ]; then
+            echo "❌ DHLOTTERY_ID is not set"
+            exit 1
+          fi
+          if [ -z "$DHLOTTERY_PASSWORD" ]; then
+            echo "❌ DHLOTTERY_PASSWORD is not set"
+            exit 1
+          fi
+          echo "✅ Environment variables are set"
+        env:
+          DHLOTTERY_ID: ${{ secrets.DHLOTTERY_ID }}
+          DHLOTTERY_PASSWORD: ${{ secrets.DHLOTTERY_PASSWORD }}
+
       - name: Run lottery automation
         run: yarn start
         timeout-minutes: 10
         env:
           DHLOTTERY_ID: ${{ secrets.DHLOTTERY_ID }}
           DHLOTTERY_PASSWORD: ${{ secrets.DHLOTTERY_PASSWORD }}
+          CI: true
 
       - name: Upload failure artifacts
         if: failure()
@@ -48,6 +65,7 @@ jobs:
         with:
           name: failure-logs-${{ github.run_id }}
           path: |
+            error-screenshot-*.png
             screenshots/
             videos/
             *.log

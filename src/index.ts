@@ -6,16 +6,23 @@ const MINIMUM_AMOUNT = 5000;
 const TARGET_PAGE_PATTERNS = ['game645.do?method=buyLotto'];
 
 function validateEnvironmentVariables() {
+  console.log('[환경변수 검증 시작]');
+
   const id = process.env.DHLOTTERY_ID;
   const pw = process.env.DHLOTTERY_PASSWORD;
 
+  console.log(`DHLOTTERY_ID 설정 여부: ${id ? '✓ 설정됨' : '✗ 미설정'}`);
+  console.log(`DHLOTTERY_PASSWORD 설정 여부: ${pw ? '✓ 설정됨' : '✗ 미설정'}`);
+
   if (!id || !pw) {
     console.error(
-      '환경변수 DHLOTTERY_ID, DHLOTTERY_PASSWORD가 설정되지 않았습니다.',
+      '\n❌ 환경변수 DHLOTTERY_ID, DHLOTTERY_PASSWORD가 설정되지 않았습니다.',
     );
+    console.error('GitHub Secrets 설정을 확인하세요.');
     process.exit(1);
   }
 
+  console.log('[환경변수 검증 완료]\n');
   return { id, pw };
 }
 
@@ -96,7 +103,8 @@ function setupPopupHandler(context: BrowserContext) {
   const { id, pw } = validateEnvironmentVariables();
 
   // CI 환경 감지
-  const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+  const isCI =
+    process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 
   console.log(`환경: ${isCI ? 'CI' : '로컬'}`);
 
@@ -153,8 +161,12 @@ function setupPopupHandler(context: BrowserContext) {
     // 비밀번호 변경 안내 페이지 확인 및 회피
     console.log('[2-1단계] 비밀번호 변경 안내 확인');
     try {
-      const passwordChangeTitle = page.locator('.header_article .sub_title:has-text("비밀번호 변경안내")');
-      const isPasswordChangePage = await passwordChangeTitle.isVisible({ timeout: 3000 });
+      const passwordChangeTitle = page.locator(
+        '.header_article .sub_title:has-text("비밀번호 변경안내")',
+      );
+      const isPasswordChangePage = await passwordChangeTitle.isVisible({
+        timeout: 3000,
+      });
 
       if (isPasswordChangePage) {
         console.log('[비밀번호 변경 안내 감지] "다음에 변경" 클릭');
@@ -319,17 +331,20 @@ function setupPopupHandler(context: BrowserContext) {
     console.error(`❌ 오류 발생: ${error}`);
 
     // CI 환경에서 스크린샷 저장
-    const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+    const isCI =
+      process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
     if (isCI) {
       try {
         const pages = context.pages();
         for (let i = 0; i < pages.length; i++) {
           const p = pages[i];
           if (p) {
-            await p.screenshot({
-              path: `error-screenshot-${i}.png`,
-              fullPage: true
-            }).catch(() => console.log(`스크린샷 저장 실패: 페이지 ${i}`));
+            await p
+              .screenshot({
+                path: `error-screenshot-${i}.png`,
+                fullPage: true,
+              })
+              .catch(() => console.log(`스크린샷 저장 실패: 페이지 ${i}`));
           }
         }
       } catch (screenshotError) {
