@@ -3,7 +3,7 @@ import { type BrowserContext, chromium, type Page } from 'playwright';
 
 const NON_DIGIT_REGEX = /[^\d]/g;
 const MINIMUM_AMOUNT = 5000;
-const TARGET_PAGE_PATTERNS = ['game645.do?method=buyLotto'];
+const TARGET_PAGE_PATTERNS = ['TotalGame.jsp?LottoId=LO40'];
 
 function validateEnvironmentVariables() {
   console.log('[환경변수 검증 시작]');
@@ -202,7 +202,21 @@ function setupPopupHandler(context: BrowserContext) {
 
     // 로또 페이지 이동
     console.log('[4단계] 로또 구매 페이지로 이동');
-    await page.getByText('복권구매').hover();
+
+    // 복권구매 메뉴에 hover하여 하위 메뉴 표시
+    const buyMenuSelector = '#gnb > ul > li.gnb1';
+    await page.locator(buyMenuSelector).hover();
+
+    // active 클래스가 추가되고 하위 메뉴가 나타날 때까지 대기
+    await page.waitForSelector(`${buyMenuSelector}.active`, { timeout: 5000 });
+    console.log('[메뉴 확장 완료]');
+
+    // 로또 6/45 버튼이 보일 때까지 대기
+    const lottoButtonSelector = '#gnb .gnb1_1 a';
+    await page.waitForSelector(lottoButtonSelector, {
+      state: 'visible',
+      timeout: 5000
+    });
 
     // 새 페이지/팝업 감지를 위한 Promise
     const pagePromise = context.waitForEvent('page', {
@@ -213,8 +227,9 @@ function setupPopupHandler(context: BrowserContext) {
       timeout: 10000,
     });
 
-    // 클릭 실행
-    await page.locator('#gnb .gnb1_1 a').click();
+    // 로또 6/45 버튼 클릭
+    console.log('[로또 6/45 버튼 클릭]');
+    await page.locator(lottoButtonSelector).click();
 
     // 새 페이지 대기
     let newPage: Page;
