@@ -278,13 +278,74 @@ function setupPopupHandler(context: BrowserContext) {
     }
 
     // 로또 구매
-    console.log('[7단계] 로또 번호 자동 선택');
-    await iframe.locator('#tabWay2Buy #num2').click();
-    await iframe.locator('#divWay2Buy1 .amount #amoundApply').selectOption('5');
-    await iframe.locator('#divWay2Buy1 .amount input[type="button"]').click();
+    console.log('[7단계] 로또 번호 혼합 선택');
+
+    const selectedNumbers = [
+      [5, 9, 13, 25, 41, 43], // A
+      [1, 2, 6, 14, 34, 45],  // B
+      [16, 27, 37, 40, 44, 45], // C
+      [7, 16, 25, 31, 38, 44], // D
+      [4, 13, 21, 28, 35, 42]  // E
+    ];
+
+    // 혼합선택 탭 클릭
+    await iframe.locator('#tabWay2Buy a#num1').click();
+    await newPage.waitForTimeout(500);
+
+    for (let gameIndex = 0; gameIndex < selectedNumbers.length; gameIndex++) {
+      const numbers = selectedNumbers[gameIndex];
+      if (!numbers) {
+        console.error(`[오류] ${gameIndex}번째 게임 번호가 없습니다`);
+        continue;
+      }
+
+      const gameLabel = String.fromCharCode(65 + gameIndex); // A, B, C, D, E
+
+      console.log(`[7-${gameIndex + 1}] ${gameLabel}게임 번호 선택: ${numbers.join(',')}`);
+
+      // 첫 게임이 아닐 때만 초기화 (입력 폼 초기화)
+      if (gameIndex > 0) {
+        await iframe.locator('#divWay2Buy1 input[value="초기화"]').click();
+        await newPage.waitForTimeout(500);
+      }
+
+      // 번호 선택 (체크박스 체크)
+      for (const num of numbers) {
+        await iframe.locator(`#check645num${num}`).check();
+        await newPage.waitForTimeout(50);
+      }
+
+      // 적용수량 1로 설정
+      await iframe.locator('#divWay2Buy1 .amount #amoundApply').selectOption('1');
+      await newPage.waitForTimeout(300);
+
+      // 확인 버튼 클릭하여 선택번호 확인 영역에 추가
+      await iframe.locator('#divWay2Buy1 .amount #btnSelectNum').click();
+
+      // 선택번호 확인 영역에 번호가 추가될 때까지 대기
+      await newPage.waitForTimeout(1000);
+
+      console.log(`  → ${gameLabel}게임 등록 완료`);
+    }
+
+    console.log('[7단계 완료] 총 5게임 선택 완료');
 
     console.log('[8단계] 구매 진행');
     await iframe.locator('.selected-games .footer #btnBuy').click();
+
+    // 확인 팝업이 표시될 때까지 대기
+    await iframe.locator('#popupLayerConfirm').waitFor({
+      state: 'visible',
+      timeout: 5000,
+    });
+
+    // 팝업 메시지 확인 (선택사항)
+    const confirmMessage = await iframe
+      .locator('#popupLayerConfirm .layer-message')
+      .textContent();
+    console.log(`[구매 확인] ${confirmMessage || ''}`);
+
+    // 확인 버튼 클릭
     await iframe
       .locator('#popupLayerConfirm .btns input[value="확인"]')
       .click();
