@@ -123,6 +123,10 @@ function setupPopupHandler(context: BrowserContext) {
     // 팝업 관련 권한 설정
     bypassCSP: true,
     javaScriptEnabled: true,
+    // 데스크톱 브라우저로 인식되도록 설정 (모바일 리다이렉트 방지)
+    userAgent:
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
   });
 
   // 팝업 핸들러 설정
@@ -249,13 +253,28 @@ function setupPopupHandler(context: BrowserContext) {
     await newPage.bringToFront();
     await newPage.waitForLoadState('networkidle');
 
+    // 모바일 페이지 리다이렉트 감지
+    const currentUrl = newPage.url();
+    console.log(`[현재 URL 확인] ${currentUrl}`);
+
+    if (currentUrl.includes('m.dhlottery.co.kr')) {
+      console.log('[모바일 페이지 감지] 데스크톱 페이지로 이동');
+      const desktopUrl = currentUrl.replace('m.dhlottery.co.kr', 'dhlottery.co.kr');
+      await newPage.goto(desktopUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      console.log(`[데스크톱 페이지 이동 완료] ${newPage.url()}`);
+    }
+
     // iframe 대기
     console.log('[5단계] iframe 로딩 대기');
-    await newPage.waitForSelector('#ifrm_tab', { timeout: 10000 });
+    await newPage.waitForSelector('#ifrm_tab', { timeout: 15000 });
     const iframe = newPage.frameLocator('#ifrm_tab');
 
+    // iframe 내부 콘텐츠가 로드될 때까지 대기
+    console.log('[5-1단계] iframe 내부 콘텐츠 로딩 대기');
+    await iframe.locator('body').waitFor({ timeout: 10000 });
+
     // 페이지 안정화를 위한 대기
-    await newPage.waitForTimeout(3000);
+    await newPage.waitForTimeout(2000);
 
     // 판매시간 확인
     console.log('[6단계] 판매시간 확인');
@@ -316,7 +335,7 @@ function setupPopupHandler(context: BrowserContext) {
       }
 
       // 적용수량 1로 설정
-      await iframe.locator('#divWay2Buy1 .amount #amoundApply').selectOption('1');
+      await iframe.locator('#divWay2Buy1 .amount #amountApply').selectOption('1');
       await newPage.waitForTimeout(300);
 
       // 확인 버튼 클릭하여 선택번호 확인 영역에 추가
